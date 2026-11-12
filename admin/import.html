@@ -132,10 +132,11 @@ async function importProducts(){
       if(!name||!slug||!photo)throw new Error('Missing product name, slug or photo filename in CSV row '+(j+2)+'.');
       var entry=zip.file('images/'+photo);
       if(!entry)throw new Error('Photo not found in ZIP: images/'+photo);
-      var blob=await entry.async('blob');
-      if(blob.size>5*1024*1024)throw new Error('Photo exceeds the 5 MB limit: '+photo);
       var ext=photo.split('.').pop().toLowerCase();
       var mime=ext==='png'?'image/png':(ext==='webp'?'image/webp':'image/jpeg');
+      var imageBytes=await entry.async('uint8array');
+      var blob=new Blob([imageBytes],{type:mime});
+      if(blob.size>5*1024*1024)throw new Error('Photo exceeds the 5 MB limit: '+photo);
       var storagePath='bulk-import/'+slug+'.'+(ext==='jpeg'?'jpg':ext);
       var upload=await client.storage.from('product-images').upload(storagePath,blob,{cacheControl:'3600',upsert:true,contentType:mime});
       if(upload.error)throw new Error('Photo upload failed for '+name+': '+upload.error.message);
