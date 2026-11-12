@@ -213,7 +213,7 @@ async function loadAll(){
   var results=await Promise.all([
     sb.from('categories').select('id,name,slug,sort_order,is_active,created_at').order('sort_order',{ascending:true}),
     sb.from('products').select('id,category_id,name,slug,description,price,price_on_request,image_url,is_active,is_featured,created_at').order('created_at',{ascending:false}),
-    sb.from('orders').select('id,customer_name,phone,email,delivery_city,delivery_address,notes,status,created_at').order('created_at',{ascending:false}).limit(100),
+    sb.from('orders').select('id,order_number,customer_name,phone,email,delivery_city,delivery_address,notes,status,created_at').order('created_at',{ascending:false}).limit(100),
     sb.from('enquiries').select('id,name,contact,email,enquiry_type,message,status,created_at').order('created_at',{ascending:false}).limit(100)
   ]);
   var labels=['categories','products','orders','enquiries'];
@@ -256,7 +256,7 @@ function renderOverview(){
   var newEnquiries=enquiries.filter(function(e){return e.status==='new';}).length;
   var latest=orders.slice(0,5).map(function(o){
     var items=orderItems.filter(function(x){return x.order_id===o.id;});
-    return '<div class="order-card"><div class="order-meta"><div><strong>'+esc(o.customer_name)+'</strong><div class="muted">'+dateText(o.created_at)+' · '+esc(o.phone)+'</div></div><span class="pill '+(o.status==='new'?'gold':'')+'">'+esc(o.status)+'</span></div><div class="order-items">'+items.map(function(x){return esc(x.product_name)+' × '+esc(x.quantity);}).join(' · ')+'</div></div>';
+    return '<div class="order-card"><div class="order-meta"><div><strong>'+esc(o.customer_name)+'</strong><div class="muted">'+dateText(o.created_at)+' · '+esc(o.phone)+' · '+esc(o.order_number||o.id)+'</div></div><span class="pill '+(o.status==='new'?'gold':'')+'">'+esc(o.status)+'</span></div><div class="order-items">'+items.map(function(x){return esc(x.product_name)+' × '+esc(x.quantity);}).join(' · ')+'</div></div>';
   }).join('');
   $('#content').innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR HANDMADE STORE</div><h1>Good day, Priya.</h1><p>Here is what is happening with your store today.</p></div><button class="btn" data-action="add-product">＋ Add product</button></div>'+
   '<div class="stats"><div class="stat"><div class="label">Total products</div><div class="value">'+products.length+'</div><div class="mini">'+active+' active on website</div></div><div class="stat"><div class="label">Categories</div><div class="value">'+categories.length+'</div><div class="mini">Product collections</div></div><div class="stat"><div class="label">Orders to review</div><div class="value">'+newOrders+'</div><div class="mini">'+orders.length+' recent orders</div></div><div class="stat"><div class="label">New enquiries</div><div class="value">'+newEnquiries+'</div><div class="mini">'+enquiries.length+' recent enquiries</div></div></div>'+
@@ -285,7 +285,7 @@ function renderCategories(){
 function renderOrders(){
   var html=orders.map(function(o){
     var items=orderItems.filter(function(x){return x.order_id===o.id;});
-    return '<article class="order-card"><div class="order-meta"><div><strong>'+esc(o.customer_name)+'</strong><div class="muted">'+dateText(o.created_at)+' · '+esc(o.phone)+' · '+esc(o.email||'')+'</div></div><select class="status-select" data-order-status="'+esc(o.id)+'">'+['new','confirmed','processing','shipped','delivered','cancelled'].map(function(s){return '<option value="'+s+'" '+(o.status===s?'selected':'')+'>'+s.charAt(0).toUpperCase()+s.slice(1)+'</option>';}).join('')+'</select></div><div class="order-items">'+(items.length?items.map(function(x){return esc(x.product_name)+' × '+esc(x.quantity);}).join(' · '):'No line items recorded')+'</div><div class="muted">Delivery: '+esc(o.delivery_city||'—')+' · '+esc(o.delivery_address||'—')+'</div>'+(o.notes?'<div class="muted">Notes: '+esc(o.notes)+'</div>':'')+'</article>';
+    return '<article class="order-card"><div class="order-meta"><div><strong>'+esc(o.customer_name)+'</strong><div class="muted">'+dateText(o.created_at)+' · '+esc(o.phone)+' · '+esc(o.email||'')+'</div><div class="muted">Order ID: '+esc(o.order_number||o.id)+'</div></div><select class="status-select" data-order-status="'+esc(o.id)+'">'+['new','confirmed','processing','shipped','delivered','cancelled'].map(function(s){return '<option value="'+s+'" '+(o.status===s?'selected':'')+'>'+s.charAt(0).toUpperCase()+s.slice(1)+'</option>';}).join('')+'</select></div><div class="order-items">'+(items.length?items.map(function(x){return esc(x.product_name)+' × '+esc(x.quantity);}).join(' · '):'No line items recorded')+'</div><div class="muted">Delivery: '+esc(o.delivery_city||'—')+' · '+esc(o.delivery_address||'—')+'</div>'+(o.notes?'<div class="muted">Notes: '+esc(o.notes)+'</div>':'')+'</article>';
   }).join('');
   $('#content').innerHTML='<div class="page-head"><div><div class="eyebrow">CUSTOMER PURCHASES</div><h1>Orders</h1><p>Review order details and update fulfilment status.</p></div><button class="btn secondary" data-action="refresh">↻ Refresh</button></div><section class="panel">'+(html||'<div class="empty">No customer orders yet.</div>')+'</section>';
 }
