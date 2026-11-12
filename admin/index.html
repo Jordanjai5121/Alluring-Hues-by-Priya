@@ -265,7 +265,7 @@ function renderOverview(){
 function renderProducts(){
   var rows=products.map(function(p){
     var cat=categories.find(function(c){return c.id===p.category_id;});
-    return '<tr><td><div class="product-cell">'+(p.image_url?'<img class="thumb" src="'+esc(p.image_url)+'" alt="">':'<div class="thumb blank">✿</div>')+'<div><strong>'+esc(p.name)+'</strong><div class="muted">'+esc(p.slug)+'</div></div></div></td><td>'+esc(cat?cat.name:'—')+'</td><td>'+esc(money(p))+'</td><td><span class="pill '+(p.is_active?'green':'red')+'">'+(p.is_active?'Active':'Hidden')+'</span></td><td><div class="actions"><button class="btn secondary small" data-action="edit-product" data-id="'+esc(p.id)+'">Edit</button><button class="btn danger small" data-action="delete-product" data-id="'+esc(p.id)+'">Delete</button></div></td></tr>';
+    return '<tr data-product="'+esc(p.name)+'" data-active="'+(p.is_active?'active':'hidden')+'"><td><div class="product-cell">'+(p.image_url?'<img class="thumb" src="'+esc(p.image_url)+'" alt="">':'<div class="thumb blank">✿</div>')+'<div><strong>'+esc(p.name)+'</strong><div class="muted">'+esc(p.slug)+'</div></div></div></td><td>'+esc(cat?cat.name:'—')+'</td><td>'+esc(money(p))+'</td><td><span class="pill '+(p.is_active?'green':'red')+'">'+(p.is_active?'Active':'Hidden')+'</span></td><td><div class="actions"><button class="btn secondary small" data-action="edit-product" data-id="'+esc(p.id)+'">Edit</button><button class="btn danger small" data-action="delete-product" data-id="'+esc(p.id)+'">Delete</button></div></td></tr>';
   }).join('');
   $('#content').innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR CATALOGUE</div><h1>Products</h1><p>Add handmade creations, photos, descriptions and pricing.</p></div><button class="btn" data-action="add-product">＋ Add product</button></div><div class="panel"><div class="toolbar"><input id="productSearch" type="search" placeholder="Search products by name…"><select id="productStatus"><option value="all">All products</option><option value="active">Active</option><option value="hidden">Hidden</option></select></div><div class="table-wrap"><table><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Website status</th><th>Actions</th></tr></thead><tbody id="productRows">'+(rows||'<tr><td colspan="5" class="empty">No products yet. Add your first handmade product.</td></tr>')+'</tbody></table></div></div>';
   $('#productSearch').addEventListener('input',filterProductRows);
@@ -313,6 +313,8 @@ function openProduct(id){
   $('#productDescription').value=p?p.description||'':'';
   $('#productPrice').value=p&&p.price!=null?p.price:'';
   $('#priceOnRequest').checked=p?p.price_on_request!==false:true;
+  $('#productPrice').disabled=$('#priceOnRequest').checked;
+  $('#productSlug').dataset.edited='';
   $('#productActive').checked=p?p.is_active!==false:true;
   $('#productFeatured').checked=p?!!p.is_featured:false;
   $('#productImage').value='';
@@ -375,6 +377,7 @@ function openCategory(id){
   var c=id?categories.find(function(x){return x.id===id;}):null;
   $('#categoryForm').reset();$('#categoryId').value=c?c.id:'';
   $('#categoryModalTitle').textContent=c?'Edit category':'Add category';
+  $('#categorySlug').dataset.edited='';
   $('#categoryName').value=c?c.name:'';
   $('#categorySlug').value=c?c.slug:'';
   $('#categorySort').value=c?c.sort_order:categories.length+1;
@@ -453,7 +456,7 @@ $('#productSlug').addEventListener('input',function(){this.dataset.edited='1';})
 $('#categoryName').addEventListener('input',function(){if(!$('#categorySlug').dataset.edited)$('#categorySlug').value=slugify(this.value);});
 $('#categorySlug').addEventListener('input',function(){this.dataset.edited='1';});
 $('#priceOnRequest').addEventListener('change',function(){$('#productPrice').disabled=this.checked;});
-$('#productModal').addEventListener('close',function(){$('#productPrice').disabled=$('#priceOnRequest').checked=false;});
+$('#productModal').addEventListener('close',function(){$('#productPrice').disabled=false;});
 $('#productImage').addEventListener('change',function(){
   var file=this.files[0];if(!file){$('#imagePreview').classList.add('hidden');return;}
   if(!file.type.startsWith('image/'))return;
