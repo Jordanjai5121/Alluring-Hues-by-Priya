@@ -58,13 +58,16 @@
           .order('sort_order', {ascending: true}),
         client.from('products')
           .select('id,category_id,name,slug,description,price,price_on_request,image_url,is_active,is_featured,created_at')
-          .order('created_at', {ascending: false})
+          .eq('is_active', true)
+          .order('created_at', {ascending: false}),
+        client.rpc('catalog_has_products')
       ]);
       if (results[0].error) throw results[0].error;
       if (results[1].error) throw results[1].error;
 
       var categoryRows = results[0].data || [];
       var productRows = results[1].data || [];
+      var hasAnyProducts = results[2].data === true;
       var categoryNames = {};
       categoryRows.forEach(function (category) {
         categoryNames[category.id] = category.name;
@@ -81,7 +84,7 @@
       /* Once the owner has added any Supabase products, Supabase becomes the
          source of truth. Hidden products remain in Admin but are excluded here.
          If the table is still empty, keep the original sample catalogue. */
-      if (productRows.length) {
+      if (hasAnyProducts || productRows.length) {
         BASE.splice(0, BASE.length);
         DBP = productRows.filter(function (product) { return product.is_active === true; })
           .map(function (product) {
