@@ -41,6 +41,7 @@ nav ul{display:flex;gap:20px;list-style:none;margin:0;padding:0}nav a{text-decor
 .ph img{width:100%;height:100%;object-fit:cover}
 .tag{font:500 1rem "DM Sans";color:var(--gold);margin-bottom:10px}
 .grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+.category-picker{max-width:520px;margin:22px 0 10px}.category-picker label{display:block;margin:0 0 8px;font-weight:700;color:var(--mute);font-size:.9rem}.category-picker select{width:100%;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;box-shadow:var(--sh);cursor:pointer}.category-picker select:focus{outline:2px solid var(--rose-d);outline-offset:2px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--sh);padding:12px;display:flex;flex-direction:column;gap:8px}
 .card .ph{aspect-ratio:4/3;min-height:0}.card p{margin:0;color:var(--mute);font-size:.9rem}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto}
 .cat{font-size:.78rem;color:var(--terra);font-weight:500}.price{font-weight:700;color:var(--sage)}
@@ -114,7 +115,10 @@ dialog::backdrop{background:rgba(30,20,15,.55)}.dlg{padding:22px;display:grid;gr
 <p>Every piece is thoughtfully handmade with love and creativity.</p></div>
 <ul><li>Unique handmade creations</li><li>Personalised designs</li><li>Attention to detail</li><li>Creative gifting</li><li>Made with love and care</li></ul></div></section>
 
-<section id="collections"><div class="wrap"><h2>Shop by Category</h2><div class="grid" id="cats"></div></div></section>
+<section id="collections"><div class="wrap"><h2>Shop by Category</h2>
+<div class="category-picker"><label for="categorySelect">Choose a collection</label><select id="categorySelect" aria-label="Shop by category"><option value="">Select a category</option></select></div>
+<p class="note" id="categoryHint">Select a category to view its products.</p>
+</div></section>
 
 <section id="shop" class="alt"><div class="wrap"><h2>Featured Products</h2>
 <div class="tools"><input id="q" type="search" placeholder="Search products" aria-label="Search products"><select id="fc" aria-label="Filter by category"></select>
@@ -224,9 +228,17 @@ let cart=[];try{cart=JSON.parse(localStorage.getItem("ah_cart")||"[]")}catch(e){
 const save=()=>{try{localStorage.setItem("ah_cart",JSON.stringify(cart))}catch(e){}if(typeof DB!=="undefined"&&DB&&UID)DB.doc("data/users/"+UID+"/cart").set({items:cart}).catch(()=>{})};
 const ph=(p,i)=>p.img?`<div class="ph"><img src="${esc(p.img)}" alt="${esc(p.name)} – handmade by Alluring Hues by Priya" loading="lazy"></div>`:`<div class="ph" style="--c:${tints[i%6]}" role="img" aria-label="Photo of ${esc(p.name)} coming soon">Photo coming soon</div>`;
 
-// categories
-$("#cats").innerHTML=CATS.map((c,i)=>`<article class="card">${(i===7||i===4)?`<div class="ph"><img src="${i===7?IMG.a1:IMG.f5}" alt="${esc(c[0])} by Alluring Hues by Priya" loading="lazy"></div>`:`<div class="ph" style="--c:${tints[i%6]}" role="img" aria-label="${esc(c[0])} photo coming soon">Photo coming soon</div>`}<h3>${esc(c[0])}</h3><p>${esc(c[1])}</p><div class="row"><button class="btn sm" data-cat="${i}">Explore Collection</button><button class="btn o sm" data-ec="${i}">Enquire Now</button></div></article>`).join("");
-$("#fc").innerHTML='<option value="">All categories</option>'+CATS.map(c=>`<option>${esc(c[0])}</option>`).join("");
+// Shop by Category dropdown + product category filter
+$("#categorySelect").innerHTML='<option value="">Select a category</option>'+CATS.map(c=>`<option value="${esc(c[0])}">${esc(c[0])}</option>`).join("");
+$("#fc").innerHTML='<option value="">All categories</option>'+CATS.map(c=>`<option value="${esc(c[0])}">${esc(c[0])}</option>`).join("");
+$("#categorySelect").addEventListener("change",()=>{
+ const selected=$("#categorySelect").value;
+ if(!selected)return;
+ $("#fc").value=selected;
+ render();
+ $("#categoryHint").textContent="Showing products in "+selected+". Choose another category to switch collections.";
+ $("#shop").scrollIntoView({behavior:"smooth"});
+});
 
 function render(){
  const q=$("#q").value.trim().toLowerCase(),c=$("#fc").value,s=$("#so").value;
