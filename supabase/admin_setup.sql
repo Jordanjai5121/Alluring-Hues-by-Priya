@@ -175,7 +175,7 @@ SET email = EXCLUDED.email;
 SELECT
     au.email,
     au.user_id,
-    public.is_admin() AS is_admin_for_current_sql_session
+    'Admin membership exists' AS status
 FROM public.admin_users au
 WHERE lower(au.email) = lower('alluringhuesbypriya@gmail.com');
 
