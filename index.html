@@ -375,5 +375,8 @@ buildSlider();
 $("#chimes").innerHTML=cfg.map((c,i)=>{const y=c[1],b=y+54;return `<div class="chime" style="left:${c[0]}%;--d:${c[4]}s;--l:-${i*.7}s"><svg viewBox="0 0 60 200" aria-hidden="true"><line x1="30" y1="0" x2="30" y2="${y}" stroke="#8a6a3b" stroke-width="1.6"/><circle cx="30" cy="${y}" r="4" fill="none" stroke="#b8923f" stroke-width="2"/><path d="M12 ${b} Q12 ${y+12} 30 ${y+12} Q48 ${y+12} 48 ${b}Z" fill="${c[2]}"/><path d="M17 ${y+30}h26M16 ${y+40}h28" stroke="#e8c76a" stroke-width="1.5" opacity=".75"/><rect x="9" y="${b-2}" width="42" height="7" rx="3.500" fill="#b8923f"/><g class="bd" style="transform-origin:30px ${b+5}px"><line x1="30" y1="${b+5}" x2="30" y2="${b+50}" stroke="#8a6a3b" stroke-width="1.5"/><circle cx="30" cy="${b+18}" r="6" fill="${c[3]}"/><circle cx="30" cy="${b+32}" r="5" fill="#2a9d9a"/><circle cx="30" cy="${b+45}" r="5.500" fill="${c[3]}"/></g></svg></div>`}).join("")})();
 render();drawCart();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/supabase-config.js"></script>
+<script src="/supabase-storefront.js"></script>
 </body>
 </html>
