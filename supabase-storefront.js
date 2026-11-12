@@ -79,6 +79,7 @@
         CATS.splice.apply(CATS, [0, CATS.length].concat(categoryRows.map(function (category) {
           return [category.name, oldDescriptions[category.name] || 'Explore handmade creations and personalised gifts.'];
         })));
+        syncCategoryUI();
       }
 
       /* Once the owner has added any Supabase products, Supabase becomes the
@@ -109,6 +110,9 @@
             };
           });
         mergeP();
+        cart = cart.filter(function (item) { return P.some(function (product) { return product.id === item.id; }); });
+        if (typeof save === 'function') save();
+        if (typeof drawCart === 'function') drawCart();
       } else if (categoryRows.length) {
         render();
       }
@@ -116,6 +120,24 @@
     } catch (error) {
       console.error('Alluring Hues catalogue load failed:', error);
       notify('Could not load the live product catalogue. Please refresh or contact the store.');
+    }
+  }
+
+  function syncCategoryUI() {
+    var categoryGrid = document.getElementById('cats');
+    var filter = document.getElementById('fc');
+    if (categoryGrid) {
+      categoryGrid.innerHTML = CATS.map(function (category, index) {
+        return '<article class="card"><div style="font-size:2rem;color:var(--gold)">✿</div>' +
+          '<h3>' + escapeHtml(category[0]) + '</h3><p>' + escapeHtml(category[1]) + '</p>' +
+          '<div class="row"><button class="btn sm" data-cat="' + index + '">Explore Collection</button>' +
+          '<button class="btn o sm" data-ec="' + index + '">Enquire Now</button></div></article>';
+      }).join('');
+    }
+    if (filter) {
+      filter.innerHTML = '<option value="">All categories</option>' + CATS.map(function (category) {
+        return '<option value="' + escapeHtml(category[0]) + '">' + escapeHtml(category[0]) + '</option>';
+      }).join('');
     }
   }
 
