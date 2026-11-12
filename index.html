@@ -144,6 +144,51 @@ dialog::backdrop{background:rgba(30,20,15,.55)}.dlg{padding:22px;display:grid;gr
 <ol class="steps"><li><h3>Explore</h3>Browse handmade collections.</li><li><h3>Select</h3>Choose your favourite product.</li><li><h3>Customise</h3>Share your requirements.</li><li><h3>Confirm</h3>Send your order enquiry through WhatsApp.</li></ol>
 <p class="note">Final price, availability, customisation and delivery details are confirmed with you on WhatsApp. No payment is taken on this website.</p></div></section>
 
+
+<style>
+#customerAuth{padding:34px 0;background:var(--card);border-block:1px solid var(--line)}
+#customerAuth .auth-card{max-width:680px;margin:auto;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--bg)}
+#customerAuth .auth-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#customerAuth .auth-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+#customerAuth .auth-note{font-size:.82rem;color:var(--mute)}
+#customerAuth .auth-orders{display:grid;gap:10px;margin-top:15px}
+#customerAuth .auth-order{border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--card)}
+#customerAuth .auth-order h3{margin:0 0 6px}
+#customerAuth [hidden]{display:none!important}
+@media(max-width:640px){#customerAuth .auth-grid{grid-template-columns:1fr}}
+</style>
+<section id="customerAuth">
+ <div class="wrap">
+  <div class="auth-card">
+   <div class="tag">CUSTOMER ACCOUNT</div>
+   <h2 id="customerAuthTitle">Sign in to your account</h2>
+   <p class="auth-note">Create an account to view your order history, order status and payment confirmation securely.</p>
+   <div id="customerAuthForm">
+    <div class="auth-grid">
+     <div id="customerNameWrap" hidden><label for="customerName">Full name</label><input id="customerName" autocomplete="name" maxlength="80"></div>
+     <div><label for="customerEmail">Email address</label><input id="customerEmail" type="email" autocomplete="email" maxlength="254"></div>
+     <div><label for="customerPassword">Password</label><input id="customerPassword" type="password" autocomplete="current-password" minlength="8"></div>
+     <div id="customerPhoneWrap" hidden><label for="customerPhone">Contact number</label><input id="customerPhone" autocomplete="tel" inputmode="tel"></div>
+    </div>
+    <div class="auth-actions">
+     <button class="btn" id="customerAuthSubmit" type="button">Sign in</button>
+     <button class="btn o" id="customerModeToggle" type="button">Create account</button>
+     <button class="btn o" id="customerForgot" type="button">Forgot password?</button>
+    </div>
+   </div>
+   <div id="customerAuthMessage" class="auth-note" role="status" aria-live="polite"></div>
+   <div id="customerAccountPanel" hidden>
+    <p id="customerGreeting"></p>
+    <div class="row">
+     <button class="btn o sm" id="customerRefreshOrders" type="button">Refresh orders</button>
+     <button class="btn o sm" id="customerSignOut" type="button">Sign out</button>
+    </div>
+    <div id="customerOrders" class="auth-orders"><p class="auth-note">Sign in to see your orders.</p></div>
+   </div>
+  </div>
+ </div>
+</section>
+
 <section id="feedback"><div class="wrap"><h2>Customer Feedback</h2><p style="max-width:620px">Real words and photos from people who bought from Alluring Hues by Priya. Feedback appears after the seller approves it.</p><div class="grid" id="rv"></div><p><button class="btn" id="rvb" type="button">Share your feedback</button></p></div></section>
 <section id="contact" class="alt"><div class="chimes" id="chimes" aria-hidden="true"></div><div class="wrap cols"><div><h2>Let’s Create Something Beautiful Together.</h2>
 <div class="cbtns">
@@ -386,6 +431,126 @@ buildSlider();
 (function(){const cfg=[[3,10,"#2a9d9a","#e9a23b",4.2],[16,50,"#c9a24a","#d9588a",5],[29,22,"#7a5a34","#2a9d9a",3.8],[43,66,"#2f8f86","#f08a3c",4.6],[57,14,"#3aa0d0","#e9a23b",5.4],[70,44,"#6b4a2e","#d9588a",4],[84,26,"#2a8a6a","#f08a3c",4.8]];
 $("#chimes").innerHTML=cfg.map((c,i)=>{const y=c[1],b=y+54;return `<div class="chime" style="left:${c[0]}%;--d:${c[4]}s;--l:-${i*.7}s"><svg viewBox="0 0 60 200" aria-hidden="true"><line x1="30" y1="0" x2="30" y2="${y}" stroke="#8a6a3b" stroke-width="1.6"/><circle cx="30" cy="${y}" r="4" fill="none" stroke="#b8923f" stroke-width="2"/><path d="M12 ${b} Q12 ${y+12} 30 ${y+12} Q48 ${y+12} 48 ${b}Z" fill="${c[2]}"/><path d="M17 ${y+30}h26M16 ${y+40}h28" stroke="#e8c76a" stroke-width="1.5" opacity=".75"/><rect x="9" y="${b-2}" width="42" height="7" rx="3.500" fill="#b8923f"/><g class="bd" style="transform-origin:30px ${b+5}px"><line x1="30" y1="${b+5}" x2="30" y2="${b+50}" stroke="#8a6a3b" stroke-width="1.5"/><circle cx="30" cy="${b+18}" r="6" fill="${c[3]}"/><circle cx="30" cy="${b+32}" r="5" fill="#2a9d9a"/><circle cx="30" cy="${b+45}" r="5.500" fill="${c[3]}"/></g></svg></div>`}).join("")})();
 render();drawCart();
+
+/* Customer accounts and private order dashboard. Supabase Auth + RLS. */
+(function(){
+ 'use strict';
+ var cfg=window.AHP_SUPABASE_CONFIG||{};
+ var client=window.AHP_SUPABASE||null;
+ var mode='signin',currentUser=null;
+ var $id=function(id){return document.getElementById(id);};
+ var say=function(message,isError){var el=$id('customerAuthMessage');if(el){el.textContent=message||'';el.style.color=isError?'#b3261e':'var(--mute)';}};
+ var escapeText=function(value){return String(value==null?'':value).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});};
+ function setMode(value){
+   mode=value;
+   $id('customerAuthTitle').textContent=value==='signup'?'Create your customer account':'Sign in to your account';
+   $id('customerNameWrap').hidden=value!=='signup';
+   $id('customerPhoneWrap').hidden=value!=='signup';
+   $id('customerPassword').autocomplete=value==='signup'?'new-password':'current-password';
+   $id('customerAuthSubmit').textContent=value==='signup'?'Create account':'Sign in';
+   $id('customerModeToggle').textContent=value==='signup'?'I already have an account':'Create account';
+   $id('customerForgot').hidden=value==='signup';
+   say('');
+ }
+ function showSignedIn(user){
+   currentUser=user;
+   $id('customerAuthForm').hidden=true;
+   $id('customerAccountPanel').hidden=false;
+   $id('customerGreeting').textContent='Signed in as '+(user.email||'customer');
+   say('Your account is active.');
+   loadCustomerOrders();
+ }
+ function showSignedOut(){
+   currentUser=null;
+   $id('customerAuthForm').hidden=false;
+   $id('customerAccountPanel').hidden=true;
+   setMode('signin');
+   $id('customerPassword').value='';
+ }
+ async function loadCustomerOrders(){
+   var target=$id('customerOrders');
+   if(!client||!currentUser){target.innerHTML='<p class="auth-note">Sign in to see your orders.</p>';return;}
+   target.innerHTML='<p class="auth-note">Loading your orders…</p>';
+   var result=await client.from('orders')
+     .select('id,order_number,customer_name,created_at,status,payment_status,payment_reference,payment_method,order_items(product_name,quantity)')
+     .eq('customer_id',currentUser.id)
+     .order('created_at',{ascending:false});
+   if(result.error){
+     console.error('Customer order list failed:',result.error);
+     target.innerHTML='<p class="auth-note">Order history is not ready yet. Run the customer account SQL setup in Supabase, then refresh.</p>';
+     return;
+   }
+   var rows=result.data||[];
+   if(!rows.length){target.innerHTML='<p class="auth-note">No orders found for this account yet. Place an order while signed in.</p>';return;}
+   target.innerHTML=rows.map(function(order){
+     var items=Array.isArray(order.order_items)?order.order_items:[];
+     var status=order.status||'Placed';
+     var payment=order.payment_status||'Not recorded';
+     return '<article class="auth-order"><h3>'+escapeText(order.order_number||order.id)+'</h3>'+
+       '<p class="auth-note">'+escapeText(new Date(order.created_at).toLocaleString())+'</p>'+
+       '<p>'+items.map(function(item){return escapeText(item.product_name)+' × '+Number(item.quantity||0);}).join('<br>')+'</p>'+
+       '<p><strong>Order status:</strong> '+escapeText(status)+'</p>'+
+       '<p><strong>Payment status:</strong> '+escapeText(payment)+'</p>'+
+       (order.payment_reference?'<p><strong>Payment reference:</strong> '+escapeText(order.payment_reference)+'</p>':'')+
+       (order.payment_method?'<p><strong>Payment method:</strong> '+escapeText(order.payment_method)+'</p>':'')+
+       '</article>';
+   }).join('');
+ }
+ async function init(){
+   if(!window.supabase||!cfg.url||!cfg.anonKey){say('Customer account service is not configured. Please contact the store.',true);return;}
+   client=window.AHP_SUPABASE||window.supabase.createClient(cfg.url,cfg.anonKey);
+   window.AHP_CUSTOMER_AUTH=client;
+   var session=await client.auth.getSession();
+   if(session.error){say(session.error.message,true);return;}
+   if(session.data.session)showSignedIn(session.data.session.user);
+   client.auth.onAuthStateChange(function(event,sessionValue){
+     if(sessionValue&&sessionValue.user)showSignedIn(sessionValue.user);
+     else if(event==='SIGNED_OUT')showSignedOut();
+   });
+ }
+ $id('customerModeToggle').addEventListener('click',function(){setMode(mode==='signin'?'signup':'signin');});
+ $id('customerAuthSubmit').addEventListener('click',async function(){
+   if(!client){say('Account service is unavailable.',true);return;}
+   var button=this;button.disabled=true;
+   try{
+     var email=$id('customerEmail').value.trim();
+     var password=$id('customerPassword').value;
+     if(!email||!password)throw new Error('Enter your email address and password.');
+     if(password.length<8)throw new Error('Password must contain at least 8 characters.');
+     var result;
+     if(mode==='signup'){
+       var fullName=$id('customerName').value.trim();
+       var phone=$id('customerPhone').value.trim();
+       if(fullName.length<2)throw new Error('Enter your full name.');
+       result=await client.auth.signUp({email:email,password:password,options:{data:{full_name:fullName,phone:phone}}});
+       if(result.error)throw result.error;
+       if(result.data.session)showSignedIn(result.data.user);
+       else say('Account created. Please verify your email using the message sent by Supabase, then sign in.');
+     }else{
+       result=await client.auth.signInWithPassword({email:email,password:password});
+       if(result.error)throw result.error;
+       showSignedIn(result.data.user);
+     }
+   }catch(error){say(error.message||'Could not complete account request.',true);}
+   finally{button.disabled=false;}
+ });
+ $id('customerForgot').addEventListener('click',async function(){
+   if(!client)return;
+   var email=$id('customerEmail').value.trim();
+   if(!email){say('Enter your email address first.',true);return;}
+   var result=await client.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/#customerAuth'});
+   say(result.error?result.error.message:'Password reset instructions have been sent if this email is registered.',!!result.error);
+ });
+ $id('customerSignOut').addEventListener('click',async function(){
+   if(!client)return;
+   var result=await client.auth.signOut();
+   if(result.error)say(result.error.message,true);else showSignedOut();
+ });
+ $id('customerRefreshOrders').addEventListener('click',loadCustomerOrders);
+ window.addEventListener('ahp-order-placed',function(){if(currentUser)loadCustomerOrders();});
+ init().catch(function(error){console.error(error);say('Could not initialise customer account.',true);});
+})();
+
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/supabase-config.js"></script>
