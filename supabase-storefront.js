@@ -154,6 +154,15 @@
     setFieldError('ba', address.length >= 6 ? '' : 'Enter your delivery address.');
     if (!validName(name) || !validPhone(phone) || !city || address.length < 6) return;
 
+    var auth = await client.auth.getUser();
+    var user = auth.data && auth.data.user;
+    if (auth.error || !user) {
+      notify('Please create a customer account or sign in before placing an order.');
+      var account = document.getElementById('customerAuth');
+      if (account) account.scrollIntoView({behavior:'smooth'});
+      return;
+    }
+
     var selected = Array.isArray(BI) ? BI.slice() : [];
     if (!selected.length) {
       notify('Your cart is empty. Add a product first.');
@@ -191,7 +200,7 @@
         p_order_number: orderNumber,
         p_customer_name: name,
         p_phone: phone,
-        p_email: null,
+        p_email: user.email || null,
         p_delivery_city: city,
         p_delivery_address: address,
         p_notes: notes,
@@ -199,17 +208,7 @@
       });
       if (result.error) throw result.error;
 
-      LASTO = {
-        id: orderNumber,
-        saved: true,
-        items: displayItems,
-        name: name,
-        phone: phone,
-        city: city,
-        addr: address,
-        note: notes,
-        at: Date.now()
-      };
+      LASTO = {id:orderNumber,saved:true,items:displayItems,name:name,phone:phone,city:city,addr:address,note:notes,at:Date.now()};
       cart = [];
       if (typeof save === 'function') save();
       if (typeof drawCart === 'function') drawCart();
@@ -217,11 +216,12 @@
       BI = [];
       document.getElementById('bdb').innerHTML =
         '<h2>Order placed successfully</h2>' +
-        '<p>Your order has been saved to the store admin.</p>' +
+        '<p>Your order has been saved to your customer account and store admin.</p>' +
         '<p>Order ID: <strong>' + escapeHtml(orderNumber) + '</strong></p>' +
-        '<p class="note">The seller will confirm availability, final price and delivery details.</p>' +
+        '<p class="note">Payment status: Not recorded. The seller will confirm the amount and payment instructions separately.</p>' +
         '<div class="row"><button class="btn wa" type="button" data-wo="1">Send order details on WhatsApp</button></div>';
-      notify('Order saved. It is now available in Admin → Orders.');
+      window.dispatchEvent(new CustomEvent('ahp-order-placed'));
+      notify('Order saved to your account. You can check it under Customer Account.');
     } catch (error) {
       console.error('Order save failed:', error);
       notify('Order was NOT saved: ' + (error.message || 'Please check Supabase setup.'));
