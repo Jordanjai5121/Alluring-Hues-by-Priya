@@ -38,3 +38,12 @@ WhatsApp: +91 88834 12455
 
 ## Storefront / admin data synchronisation
 After the base tables and `admin_setup.sql` are ready, run `supabase/storefront_sync.sql` in Supabase SQL Editor. This adds the customer-facing order RPC and the `AHO-XXXXXX` order reference column. The public storefront loads categories and products from Supabase, records enquiries in `public.enquiries`, and saves customer orders through the secure `place_order` RPC. Hidden products stay in Admin but are not shown in the public catalogue.
+
+
+## Customer accounts and private order history
+1. Run `supabase/customer_accounts.sql` in Supabase SQL Editor after `supabase/storefront_sync.sql`.
+2. In Supabase Authentication settings, configure the site's allowed redirect URLs for the Vercel domain. Keep email confirmation enabled where appropriate.
+3. Customers create an account or sign in in the Customer Account section before placing an order. Orders are linked to their Supabase Auth user and the RLS policies let them read only their own orders and order items.
+4. The customer page shows order status and recorded payment status/reference. Existing guest orders remain unclaimed; customers should contact the store to reconcile older guest orders.
+
+The website does not collect card numbers, CVVs, expiry dates, OTPs, UPI PINs or banking passwords. A payment provider such as Razorpay/Stripe must process card payments on its hosted checkout and confirm successful payments through a server-side webhook before marking an order as paid. The website currently records payment status/reference fields but does not yet have a live payment gateway integration.
