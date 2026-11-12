@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Bulk Product Import | Alluring Hues by Priya</title>
+<style>
+:root{--bg:#f8f4ed;--panel:#fffdf9;--ink:#38291f;--muted:#857367;--line:#e9dfd2;--rose:#a96a6c;--sage:#71866b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Arial,sans-serif;padding:28px}.wrap{max-width:850px;margin:auto}.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:25px;margin:18px 0;box-shadow:0 12px 36px #3e2a2110}h1{font-family:Georgia,serif;font-size:32px;margin:5px 0}h2{font-size:19px;margin:0 0 12px}.eyebrow{font-size:11px;letter-spacing:.16em;color:#b8923f;font-weight:700}.muted{color:var(--muted)}label{display:block;font-weight:700;font-size:13px;margin:12px 0 6px}input{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:white;color:var(--ink)}button,.link{display:inline-block;border:0;border-radius:10px;padding:12px 17px;background:var(--rose);color:white;font-weight:700;cursor:pointer;text-decoration:none}button:disabled{opacity:.55;cursor:wait}.secondary{background:#f2e8df;color:var(--ink);border:1px solid var(--line)}.hidden{display:none!important}.status{padding:12px 14px;border-radius:10px;background:#f3eee7;margin-top:14px;white-space:pre-wrap;overflow-wrap:anywhere}.success{background:#edf5eb;color:#476a42}.error{background:#fff0ed;color:#9c3939}.progress{height:10px;background:#eee4d9;border-radius:20px;overflow:hidden;margin-top:12px}.bar{height:100%;width:0;background:var(--sage);transition:width .2s}.steps{padding-left:20px;color:var(--muted)}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}.small{font-size:12px}.top{display:flex;justify-content:space-between;gap:15px;align-items:center;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div><div class="eyebrow">ALLURING HUES BY PRIYA · ADMIN</div><h1>Bulk product import</h1><p class="muted">Import the supplied product ZIP, including product photos, descriptions and categories.</p></div><a class="link secondary" href="/admin/">← Admin dashboard</a></div>
+  <section class="panel" id="authPanel">
+    <h2>Administrator sign-in</h2>
+    <p class="muted">Use the same Supabase administrator account used in the Admin dashboard. Your password is sent directly to Supabase Auth and is not stored by this page.</p>
+    <form id="loginForm">
+      <label for="email">Admin email</label><input id="email" type="email" autocomplete="username" value="alluringhuesbypriya@gmail.com" required>
+      <label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required>
+      <div class="actions"><button type="submit" id="loginBtn">Sign in</button></div>
+    </form>
+    <div id="authStatus" class="status">Checking existing admin session…</div>
+  </section>
+  <section class="panel hidden" id="importPanel">
+    <h2>Upload the product ZIP</h2>
+    <p class="muted">Choose <strong>product-upload-pack.zip</strong>. This import creates the two categories if they do not exist, uploads all 15 photos to the <code>product-images</code> Storage bucket, and inserts or updates the 15 products. Prices remain blank and “Price on request” stays enabled.</p>
+    <label for="zipFile">Product ZIP file</label><input id="zipFile" type="file" accept=".zip,application/zip" required>
+    <div class="actions"><button id="importBtn" type="button">Import all products</button><button id="logoutBtn" type="button" class="secondary">Sign out</button></div>
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div id="importStatus" class="status">Ready. Select the ZIP file to begin.</div>
+  </section>
+  <section class="panel">
+    <h2>Import behaviour</h2>
+    <ul class="steps">
+      <li>Existing products with the same URL slug are updated, not duplicated.</li>
+      <li>All products are set active on the website, following the CSV settings.</li>
+      <li>The eight tealight/decorative products are featured; fridge magnets are not featured.</li>
+      <li>All prices remain blank with “Price on request” enabled.</li>
+      <li>Only your authenticated admin session can run the import. The database's Row Level Security policies remain in force.</li>
+    </ul>
+    <p class="muted small">Use the Supabase publishable key configured for the website only. This page never asks for or uses a service-role/secret key.</p>
+  </section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="/supabase-config.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);};
+var config=window.AHP_SUPABASE_CONFIG||{};
+var client=null;
+function message(id,text,type){var el=$(id);el.textContent=text;el.className='status'+(type?' '+type:'');}
+function showImport(){ $('authPanel').classList.add('hidden'); $('importPanel').classList.remove('hidden'); }
+function showAuth(){ $('importPanel').classList.add('hidden'); $('authPanel').classList.remove('hidden'); }
+async function verifyAdmin(){
+  var sessionResult=await client.auth.getSession();
+  if(sessionResult.error)throw sessionResult.error;
+  var session=sessionResult.data.session;
+  if(!session||!session.user){showAuth();message('authStatus','Please sign in with the store administrator account.');return false;}
+  var check=await client.rpc('is_admin');
+  if(check.error)throw new Error('Could not verify admin access. Confirm that supabase/admin_setup.sql has been run. '+check.error.message);
+  if(check.data!==true)throw new Error('This account is signed in but is not listed as a store administrator in public.admin_users.');
+  showImport();message('authStatus','');return true;
+}
+function parseCSV(input){
+  var rows=[],row=[],field='',quoted=false;
+  for(var i=0;i<input.length;i++){
+    var ch=input[i],next=input[i+1];
+    if(quoted){
+      if(ch==='"'&&next==='"'){field+='"';i++;}
+      else if(ch==='"')quoted=false;
+      else field+=ch;
+    }else{
+      if(ch==='"')quoted=true;
+      else if(ch===','){row.push(field);field='';}
+      else if(ch==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else if(ch!=='\r')field+=ch;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  if(!rows.length)return [];
+  var headers=rows.shift().map(function(h){return h.trim();});
+  return rows.filter(function(r){return r.some(function(v){return String(v||'').trim()!=='';});}).map(function(r){
+    var o={};headers.forEach(function(h,i){o[h]=(r[i]||'').trim();});return o;
+  });
+}
+function yes(value){return String(value||'').trim().toLowerCase()==='yes';}
+function slugify(value){return String(value||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+async function getOrCreateCategory(name,order,cache){
+  if(cache[name])return cache[name];
+  var slug=slugify(name);
+  var found=await client.from('categories').select('id,name,slug').eq('name',name).maybeSingle();
+  if(found.error)throw found.error;
+  if(found.data){cache[name]=found.data.id;return found.data.id;}
+  var made=await client.from('categories').insert({name:name,slug:slug,sort_order:order,is_active:true}).select('id').single();
+  if(made.error)throw new Error('Could not create category "'+name+'": '+made.error.message);
+  cache[name]=made.data.id;return made.data.id;
+}
+async function importProducts(){
+  var file=$('zipFile').files[0];
+  if(!file){message('importStatus','Please choose product-upload-pack.zip first.','error');return;}
+  if(!window.JSZip){message('importStatus','ZIP library did not load. Refresh the page and try again.','error');return;}
+  $('importBtn').disabled=true;$('bar').style.width='0%';
+  var log=[];
+  function update(text,percent){log.push(text);message('importStatus',log.slice(-8).join('\n'));$('bar').style.width=percent+'%';}
+  try{
+    var access=await verifyAdmin();
+    if(!access)throw new Error('Admin sign-in is required.');
+    update('Reading ZIP file…',3);
+    var zip=await JSZip.loadAsync(file);
+    var csvEntry=zip.file('products.csv');
+    if(!csvEntry)throw new Error('products.csv was not found inside the ZIP.');
+    var rows=parseCSV(await csvEntry.async('text'));
+    if(rows.length!==15)throw new Error('Expected 15 product rows, but found '+rows.length+'. Please choose the supplied product-upload-pack.zip.');
+    var categoryCache={};
+    var categoryOrder=0;
+    for(var i=0;i<rows.length;i++){
+      var cat=rows[i].Category;
+      if(!cat)throw new Error('Missing category in CSV row '+(i+2)+'.');
+      if(!categoryCache[cat]){categoryOrder+=10;await getOrCreateCategory(cat,categoryOrder,categoryCache);}
+    }
+    update('Categories are ready. Uploading 15 product photos and saving products…',8);
+    var completed=0;
+    for(var j=0;j<rows.length;j++){
+      var row=rows[j];
+      var name=row['Product name'];
+      var slug=row['URL slug']||slugify(name);
+      var photo=row['Photo file (in images folder)'];
+      if(!name||!slug||!photo)throw new Error('Missing product name, slug or photo filename in CSV row '+(j+2)+'.');
+      var entry=zip.file('images/'+photo);
+      if(!entry)throw new Error('Photo not found in ZIP: images/'+photo);
+      var blob=await entry.async('blob');
+      if(blob.size>5*1024*1024)throw new Error('Photo exceeds the 5 MB limit: '+photo);
+      var ext=photo.split('.').pop().toLowerCase();
+      var mime=ext==='png'?'image/png':(ext==='webp'?'image/webp':'image/jpeg');
+      var storagePath='bulk-import/'+slug+'.'+(ext==='jpeg'?'jpg':ext);
+      var upload=await client.storage.from('product-images').upload(storagePath,blob,{cacheControl:'3600',upsert:true,contentType:mime});
+      if(upload.error)throw new Error('Photo upload failed for '+name+': '+upload.error.message);
+      var imageUrl=client.storage.from('product-images').getPublicUrl(storagePath).data.publicUrl;
+      var priceText=row['Price (₹)'];
+      var price=priceText===''?null:Number(priceText);
+      var payload={
+        category_id:categoryCache[row.Category],
+        name:name,
+        slug:slug,
+        description:row.Description||null,
+        price:price,
+        price_on_request:yes(row['Price on request']),
+        image_url:imageUrl,
+        is_active:yes(row['Active on website']),
+        is_featured:yes(row['Featured product'])
+      };
+      var existing=await client.from('products').select('id').eq('slug',slug).maybeSingle();
+      if(existing.error)throw existing.error;
+      var saved=existing.data
+        ?await client.from('products').update(payload).eq('id',existing.data.id)
+        :await client.from('products').insert(payload);
+      if(saved.error)throw new Error('Could not save '+name+': '+saved.error.message);
+      completed++;
+      update('Saved '+completed+'/15: '+name,8+Math.round(completed/15*92));
+    }
+    update('SUCCESS — all 15 products and photos have been imported. Open the public website and refresh to verify.',100);
+    $('importStatus').classList.add('success');
+  }catch(error){
+    message('importStatus','Import stopped: '+(error.message||String(error))+'\n\nYou can safely run the same ZIP again; products are matched by URL slug and updated instead of duplicated.','error');
+  }finally{$('importBtn').disabled=false;}
+}
+$('loginForm').addEventListener('submit',async function(event){
+  event.preventDefault();$('loginBtn').disabled=true;message('authStatus','Signing in…');
+  try{
+    var result=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
+    if(result.error)throw result.error;
+    $('password').value='';
+    await verifyAdmin();
+  }catch(error){message('authStatus',error.message||'Sign-in failed.','error');}
+  finally{$('loginBtn').disabled=false;}
+});
+$('importBtn').addEventListener('click',importProducts);
+$('logoutBtn').addEventListener('click',async function(){await client.auth.signOut();showAuth();message('authStatus','Signed out.');});
+(async function init(){
+  if(!window.supabase||!config.url||!config.anonKey){message('authStatus','Supabase configuration is missing. Check /supabase-config.js.','error');return;}
+  client=window.supabase.createClient(config.url,config.anonKey);
+  try{await verifyAdmin();}catch(error){showAuth();message('authStatus',error.message||String(error),'error');}
+})();
+})();
+</script>
+</body>
+</html>
