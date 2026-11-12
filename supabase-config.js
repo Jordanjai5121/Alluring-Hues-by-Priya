@@ -3,5 +3,5 @@
 // NEVER put a service_role or secret key in this file.
 window.AHP_SUPABASE_CONFIG = {
   url: "https://yjhotaqukdxgoztpvydb.supabase.co",
-  anonKey: "PASTE_YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY_HERE"
+  anonKey: "sb_publishable_EeK5mpkfTct-I2B_-QzLyA_MEr-QYSW"
 };
