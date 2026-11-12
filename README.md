@@ -34,3 +34,7 @@ The public storefront loads active categories and products from Supabase when `s
 Email: alluringhuesbypriya@gmail.com
 Instagram: https://www.instagram.com/alluring_hues_by_priya/
 WhatsApp: +91 88834 12455
+
+
+## Storefront / admin data synchronisation
+After the base tables and `admin_setup.sql` are ready, run `supabase/storefront_sync.sql` in Supabase SQL Editor. This adds the customer-facing order RPC and the `AHO-XXXXXX` order reference column. The public storefront loads categories and products from Supabase, records enquiries in `public.enquiries`, and saves customer orders through the secure `place_order` RPC. Hidden products stay in Admin but are not shown in the public catalogue.
