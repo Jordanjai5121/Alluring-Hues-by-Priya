@@ -38,6 +38,21 @@ WITH CHECK (
     AND status = 'new'
 );
 
+-- Let the public storefront distinguish an empty catalogue from a catalogue
+-- whose products are all hidden. It reveals only a boolean, not product details.
+CREATE OR REPLACE FUNCTION public.catalog_has_products()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $
+    SELECT EXISTS (SELECT 1 FROM public.products);
+$;
+
+REVOKE ALL ON FUNCTION public.catalog_has_products() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.catalog_has_products() TO anon, authenticated;
+
 -- Orders and order items are created only through the secure RPC.
 DROP POLICY IF EXISTS "Public can place orders" ON public.orders;
 DROP POLICY IF EXISTS "Public can add order items" ON public.order_items;
@@ -158,4 +173,6 @@ SELECT
           AND column_name = 'order_number'
     ) AS order_number_column_exists,
     to_regprocedure('public.place_order(text,text,text,text,text,text,text,jsonb)') IS NOT NULL
-        AS place_order_function_exists;
+        AS place_order_function_exists,
+    to_regprocedure('public.catalog_has_products()') IS NOT NULL
+        AS catalog_check_function_exists;
