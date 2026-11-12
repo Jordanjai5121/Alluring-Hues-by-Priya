@@ -33,16 +33,17 @@
   }
   function validName(value) { return value.length >= 2 && value.length <= 80; }
   function validPhone(value) { return value.length >= 5 && value.length <= 20; }
+  function validOptionalMobile(value) { return !value || /^\+?[\d\s-]{7,16}$/.test(value); }
   function sendWhatsApp(message) {
     if (typeof wa === 'function') wa(message);
     else window.open('https://wa.me/918883412455?text=' + encodeURIComponent(message), '_blank', 'noopener');
   }
   async function saveEnquiry(name, contact, type, message) {
     var result = await client.from('enquiries').insert({
-      name: name,
-      contact: contact || 'Not provided',
+      name: name.slice(0, 80),
+      contact: (contact || 'Not provided').slice(0, 120),
       enquiry_type: type,
-      message: message,
+      message: message.slice(0, 2000),
       status: 'new'
     });
     if (result.error) throw result.error;
@@ -237,6 +238,10 @@
       notify('Enter your name and delivery city / area.');
       return;
     }
+    if (!validOptionalMobile(phone)) {
+      notify('Enter a valid contact number or leave it empty.');
+      return;
+    }
     if (!Array.isArray(cart) || !cart.length) {
       notify('Your cart is empty. Add a product first.');
       return;
@@ -268,8 +273,12 @@
     var idea = fieldValue('ct');
     setFieldError('cn', validName(name) ? '' : 'Enter your name.');
     if (!validName(name)) return;
-    if (!idea || idea.length < 2) {
-      notify('Please describe your custom order idea.');
+    if (!idea || idea.length < 5) {
+      notify('Please describe your custom order idea (at least 5 characters).');
+      return;
+    }
+    if (!validOptionalMobile(phone)) {
+      notify('Enter a valid contact number or leave it empty.');
       return;
     }
     var message = 'Custom order request: ' + idea;
@@ -316,6 +325,61 @@
       console.error('Storefront form failed:', error);
       notify(error.message || 'Could not submit this request.');
     });
+  }, true);
+
+  /* Save direct product/category/workshop WhatsApp enquiries as well. */
+  document.addEventListener('click', function (event) {
+    var productButton = event.target.closest('[data-e]');
+    if (productButton) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var product = P.find(function (candidate) { return candidate.id === productButton.dataset.e; });
+      if (product) {
+        var text = 'Product enquiry: ' + product.name + ' (' + (product.slug || product.id) + '). Quantity: 1.';
+        sendWhatsApp('Hello Alluring Hues by Priya!\n\nI am interested in ' + product.name +
+          '. Please share available designs, colours, final price and delivery details.\n\nThank you!');
+        saveEnquiry('Website visitor', 'Not provided', 'Product Enquiry', text)
+          .then(function () { notify('Product enquiry saved in Admin → Enquiries.'); })
+          .catch(function (error) {
+            console.error('Direct product enquiry save failed:', error);
+            notify('WhatsApp opened, but the enquiry was NOT saved: ' + (error.message || 'Supabase error.'));
+          });
+      }
+      return;
+    }
+
+    var categoryButton = event.target.closest('[data-ec]');
+    if (categoryButton) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var category = CATS[Number(categoryButton.dataset.ec)];
+      if (category) {
+        var text = 'Customer is interested in the ' + category[0] + ' collection.';
+        sendWhatsApp('Hello Alluring Hues by Priya!\n\nI would like to enquire about: ' +
+          category[0] + '. Please share available designs and details.\n\nThank you!');
+        saveEnquiry('Website visitor', 'Not provided', 'Category Enquiry', text)
+          .then(function () { notify('Category enquiry saved in Admin → Enquiries.'); })
+          .catch(function (error) {
+            console.error('Category enquiry save failed:', error);
+            notify('WhatsApp opened, but the enquiry was NOT saved: ' + (error.message || 'Supabase error.'));
+          });
+      }
+      return;
+    }
+
+    var genericLink = event.target.closest('[data-wa]');
+    if (genericLink) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var message = genericLink.dataset.wa || 'Website enquiry';
+      sendWhatsApp(message);
+      saveEnquiry('Website visitor', 'Not provided', 'Website Enquiry', message)
+        .then(function () { notify('Enquiry saved in Admin → Enquiries.'); })
+        .catch(function (error) {
+          console.error('Website enquiry save failed:', error);
+          notify('WhatsApp opened, but the enquiry was NOT saved: ' + (error.message || 'Supabase error.'));
+        });
+    }
   }, true);
 
   /* Track AHO order references against the Supabase orders table. */
